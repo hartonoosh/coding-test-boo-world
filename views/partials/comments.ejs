@@ -1,0 +1,595 @@
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const user_data   = { name: "Sri Hartono", avatar: "/static/sri-hartono.JPG" };
+  const mbti_array  = ['INFP','INFJ','ENFP','ENFJ','INTJ','INTP','ENTP','ENTJ','ISFP','ISFJ','ESFP','ESFJ','ISTP','ISTJ','ESTP','ESTJ'];
+  const ennea_array = ['1w2','2w3','3w2','3w4','4w3','4w5','5w4','5w6','6w5','6w7','7w6','7w8','8w7','8w9','9w8','9w1'];
+  const zodiac_array= ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+  const likeIcon    = `<svg style="fill: currentColor;width:20px;height:20px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"/></svg>`;
+  const unlikeIcon  = `<svg style="fill: currentColor;width:20px;height:20px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M225.8 468.2l-2.5-2.3L48.1 303.2C17.4 274.7 0 234.7 0 192.8l0-3.3c0-70.4 50-130.8 119.2-144C158.6 37.9 198.9 47 231 69.6c9 6.4 17.4 13.8 25 22.3c4.2-4.8 8.7-9.2 13.5-13.3c3.7-3.2 7.5-6.2 11.5-9c0 0 0 0 0 0C313.1 47 353.4 37.9 392.8 45.4C462 58.6 512 119.1 512 189.5l0 3.3c0 41.9-17.4 81.9-48.1 110.4L288.7 465.9l-2.5 2.3c-8.2 7.6-19 11.9-30.2 11.9s-22-4.2-30.2-11.9zM239.1 145c-.4-.3-.7-.7-1-1.1l-17.8-20-.1-.1s0 0 0 0c-23.1-25.9-58-37.7-92-31.2C81.6 101.5 48 142.1 48 189.5l0 3.3c0 28.5 11.9 55.8 32.8 75.2L256 430.7 431.2 268c20.9-19.4 32.8-46.7 32.8-75.2l0-3.3c0-47.3-33.6-88-80.1-96.9c-34-6.5-69 5.4-92 31.2c0 0 0 0-.1 .1s0 0-.1 .1l-17.8 20c-.3 .4-.7 .7-1 1.1c-4.5 4.5-10.6 7-16.9 7s-12.4-2.5-16.9-7z"/></svg>`;
+
+  const mbti_type   = new Set(mbti_array.map(s => s.toLowerCase()));
+  const zodiac_type = new Set(zodiac_array.map(s => s.toLowerCase()));
+  const draftState  = { MBTI: null, Enneagram: null, Zodiac: null };
+
+  let comments      = [];
+  let sortBy        = 'recent';
+  let filterBy      = null;
+
+  const root = document.querySelector('#comments-content');
+  if (!root) {
+    console.warn('comments-content not found. Buat <div id="comments-content"></div> di template.');
+    return;
+  }
+
+  root.innerHTML = `
+    <div class="comments-header">
+      <div class="title-container">
+        <div class="title-header">
+          <h3 class="comments-title">Comments</h3>
+          <button class="vote-btn" id="vote-comment-btn" aria-expanded="false">VOTE/COMMENT</button>
+        </div>
+        <div class="filter-tabs" role="tablist" aria-label="Filter comments by personality systems">
+          <span class="filter-tab active" data-filter="ALL">All</span>
+          <span class="filter-tab" data-filter="MBTI">MBTI</span>
+          <span class="filter-tab" data-filter="Enneagram">Enneagram</span>
+          <span class="filter-tab" data-filter="Zodiac">Zodiac</span>
+        </div>
+        <div class="sort-pills" aria-label="Sorting">
+          <button class="sort-pill" data-sort="best">best</button>
+          <button class="sort-pill active" data-sort="recent">recent</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="comment-draft" id="comment-draft" aria-hidden="true">
+        <div class="draft-head">
+            <img src="${user_data.avatar}" alt="avatar">
+            <div class="draft-user">${user_data.name}</div>
+        </div>
+        <div style="flex:1">
+            <form id="comment-form">
+              <input class="draft-title" name="title" placeholder="Title" />
+              <div class="vote-row" id="vote-row">
+                  <div class="vote-tag-wrap"><button type="button" class="vote-tag" data-type="MBTI">MBTI</button></div>
+                  <div class="vote-tag-wrap"><button type="button" class="vote-tag ennea" data-type="Enneagram">Enneagram</button></div>
+                  <div class="vote-tag-wrap"><button type="button" class="vote-tag zodiac" data-type="Zodiac">Zodiac</button></div>
+              </div>
+              <textarea class="draft-body" name="body" placeholder="Share your reasoning by commenting here"></textarea>
+              <div class="draft-bottom">
+                  <button class="submit-btn" id="submit-comment" type="submit" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-horizontal-icon lucide-send-horizontal"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z"/><path d="M6 12h16"/></svg>
+                  </button>
+              </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="comments-list"></div>
+  `;
+
+  const filterTabs  = root.querySelectorAll('.filter-tab');
+  const sortPills   = root.querySelectorAll('.sort-pill');
+  const voteBtn     = root.querySelector('#vote-comment-btn');
+  const draft       = root.querySelector('#comment-draft');
+  const voteRow     = root.querySelector('#vote-row');
+  const submitBtn   = root.querySelector('#submit-comment');
+  const titleInput  = root.querySelector('.draft-title');
+  const bodyInput   = root.querySelector('.draft-body');
+  const form        = root.querySelector('#comment-form');
+  const listEl      = root.querySelector('#comments-list');
+
+  function isEnneagramTag(tag) {
+    return /^\d+w\d$/.test(tag.toLowerCase());
+  }
+
+  function classifyTags(tags = []) {
+    const category = new Set();
+
+    for (let raw of tags) {
+      if (!raw) continue;
+      const t = String(raw).trim();
+      if (!t) continue;
+
+      const lower = t.toLowerCase();
+
+      if (mbti_type.has(lower)) {
+        category.add('MBTI');
+        continue;
+      }
+
+      if (isEnneagramTag(t)) {
+        category.add('Enneagram');
+        continue;
+      }
+
+      if (ennea_array.map(x => x.toLowerCase()).includes(lower)) {
+        category.add('Enneagram');
+        continue;
+      }
+
+      if (zodiac_type.has(lower)) {
+        category.add('Zodiac');
+        continue;
+      }
+
+      const token = t.replace(/[^a-z0-9w]/gi,'');
+      if (mbti_type.has(token.toLowerCase())) { 
+        category.add('MBTI'); continue;
+      }
+
+      if (isEnneagramTag(token)) {
+        category.add('Enneagram'); continue;
+      }
+
+      category.add('Other');
+    }
+
+    return Array.from(category);
+  }
+
+  function uid() { 
+    return 'c_' + Math.random().toString(36).slice(2,9);
+  }
+
+  function escapeHtml(s = '') {
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function checkSubmitEnabled() {
+    const hasSelection= draftState.MBTI || draftState.Enneagram || draftState.Zodiac;
+    const hasText     = (titleInput.value && titleInput.value.trim().length) || (bodyInput.value && bodyInput.value.trim().length);
+    if (hasSelection && hasText) {
+      submitBtn.classList.add('enabled');
+      submitBtn.disabled = false;
+    } else {
+      submitBtn.classList.remove('enabled');
+      submitBtn.disabled = true;
+    }
+  }
+
+  function createDropdown(wrap, arrayList = [], tagClass = null) {
+      const existing = wrap.querySelector('.vote-dropdown');
+      if (existing) existing.remove();
+
+      const div     = document.createElement('div');
+      div.className = 'vote-dropdown '+tagClass;
+      const ul      = document.createElement('ul');
+
+      arrayList.forEach(val => {
+          const li        = document.createElement('li');
+          li.dataset.value= val;
+          if (val.includes('w')) {
+            const [left, right] = val.split('w');
+            li.innerHTML  = `<span>${left}</span>
+              <img src="static/wing.png" alt="w" class="wing-icon">
+              <span>${right}</span>`;
+          } else {
+            li.textContent= val;
+          }
+
+          ul.appendChild(li);
+      });
+
+      div.appendChild(ul);
+      wrap.appendChild(div);
+
+      const btn       = wrap.querySelector('.vote-tag');
+      const btnRect   = btn.getBoundingClientRect();
+      div.style.width = btnRect.width + 'px';
+
+      function removeDropdown(reason = 'cancel') {
+          if(reason === 'select'){
+              btn.classList.remove('dropdown');
+          } else {
+              btn.classList.remove('active','dropdown');
+          }
+          div.remove();
+          document.removeEventListener('click', onDocClick);
+          window.removeEventListener('resize', onResize);
+          window.removeEventListener('scroll', onScroll, true);
+      }
+
+      function onDocClick(e) {
+          if (!wrap.contains(e.target)) removeDropdown();
+      }
+
+      function onResize() {
+          const newRect   = btn.getBoundingClientRect();
+          div.style.width = newRect.width + 'px';
+      }
+
+      function onScroll(e) {
+          if (!div.contains(e.target)) {
+              removeDropdown();
+          }
+      }
+
+      setTimeout(() => {
+          document.addEventListener('click', onDocClick);
+          window.addEventListener('resize', onResize);
+          window.addEventListener('scroll', onScroll, true);
+      }, 0);
+
+      div._remove = removeDropdown;
+
+      div.addEventListener('wheel', e => e.stopPropagation());
+      div.addEventListener('touchmove', e => e.stopPropagation());
+      div.addEventListener('mousedown', e => e.stopPropagation());
+      return div;
+  }
+
+  const listUl = root.querySelector('.vote-dropdown ul');
+  if (listUl) {
+      listUl.addEventListener('wheel', function (e) {
+          e.preventDefault();
+          listUl.scrollTop += e.deltaY;
+      }, { passive: false });
+
+      let startY = null;
+      listUl.addEventListener('touchstart', function (e) {
+          if (e.touches && e.touches[0]){
+            startY = e.touches[0].clientY;
+          }
+      }, { passive: true });
+
+      listUl.addEventListener('touchmove', function (e) {
+          if (startY === null) return;
+          const curY= e.touches[0].clientY;
+          const diff= startY - curY;
+          listUl.scrollTop += diff;
+          startY    = curY;
+      }, { passive: true });
+  }
+
+  function closeAllDropdowns() {
+    document.querySelectorAll('.vote-dropdown').forEach(d => d.remove());
+  }
+  
+  let lastAddedId = null;
+  function renderComments() {
+    let arr = comments.slice();
+
+    if (sortBy === 'best'){
+      arr.sort((a,b) => (b.likes || 0) - (a.likes || 0));
+    } else {
+      arr.sort((a,b) => b.created - a.created);
+    }
+
+    if (filterBy && filterBy !== 'ALL') {
+      arr = arr.filter(c => {
+        if (c.category && c.category.includes(filterBy)){
+          return true;
+        }
+        return (c.tags || []).some(t => t.toLowerCase() === filterBy.toLowerCase());
+      });
+    }
+
+    const existingCards = new Map();
+    listEl.querySelectorAll('.comment-card').forEach(el => {
+        const id = el.dataset.id;
+        if (id) existingCards.set(id, el);
+    });
+
+    listEl.innerHTML = '';
+    arr.forEach(c => {
+      const countLike = `<span class="count-like">${c.likes||0}</span>`;
+      const likeStatus= c.liked ? `${likeIcon}` : `${unlikeIcon}`;
+      let card        = existingCards.get(c.id);
+
+      if (!card) {
+        let body = c.body || '';
+        if (!body.includes('<br>')) {
+          body = body.replace(/\r?\n/g, '<br>');
+        }
+        card            = document.createElement('div');
+        card.className  = 'comment-card';
+        card.dataset.id = c.id;
+        card.innerHTML  = `
+            <div class="meta">
+              <img class="comment-image" src="${c.avatar}" alt="">
+              <div>
+                  <div class="comment-name">${escapeHtml(c.author)}</div>
+              </div>
+            </div>
+            <h4>${escapeHtml(c.title || '')}</h4>
+            <div class="tags">${(c.tags || []).map(
+              t => {
+                let tagHtml = '';
+                if (ennea_array.includes(t)) {
+                  const [left, right] = t.split('w');
+                  tagHtml = `<span class="tag tag-ennea">
+                      ${left}
+                      <img src="/static/wing.png" alt="w" class="wing-icon">
+                      ${right}
+                    </span>`;
+                } else {
+                  const tagClass= mbti_array.includes(t) ? 'tag-mbti': 'tag-zodiac';
+                  tagHtml       = `<span class="tag ${tagClass}">${escapeHtml(t)}</span>`;
+                }
+
+                return tagHtml;
+              }).join('')}</div>
+            <p>${body}</p>
+            <div class="comment-actions">
+              <button class="btn-like" data-id="${c.id}" aria-pressed="${c.liked ? 'true' : 'false'}">
+                ${likeStatus} ${countLike}
+              </button>
+            </div>
+        `;
+
+        if (lastAddedId === c.id) {
+            card.classList.add('newly-added');
+        }
+
+        listEl.appendChild(card);
+
+        if (card.classList.contains('newly-added')) {
+          requestAnimationFrame(() => {
+            card.classList.remove('newly-added');
+          });
+        }
+      } else {
+        const title_h4  = card.querySelector('h4');
+        const title_p   = card.querySelector('p');
+        const title_tags= card.querySelector('.tags');
+        const btn_like  = card.querySelector('.btn-like');
+
+        if (title_h4) title_h4.textContent = c.title || '';
+        if (title_p) title_p.textContent = c.body || '';
+        if (title_tags) {
+          title_tags.innerHTML = (c.tags || []).map(t => {
+            let tagHtml = '';
+            if (ennea_array.includes(t)) {
+              const [left, right] = t.split('w');
+              tagHtml = `<span class="tag tag-ennea">
+                  ${left}
+                  <img src="/static/wing.png" alt="w" class="wing-icon">
+                  ${right}
+                </span>`;
+            } else {
+              const tagClass= mbti_array.includes(t) ? 'tag-mbti': 'tag-zodiac';
+              tagHtml       = `<span class="tag ${tagClass}">${escapeHtml(t)}</span>`;
+            }
+
+            return tagHtml;
+          }).join('');
+        }
+        if (btn_like) {
+            btn_like.innerHTML = `${likeStatus} ${countLike}`;
+            btn_like.setAttribute('aria-pressed', c.liked ? 'true' : 'false');
+        }
+
+        card.classList.remove('newly-added');
+
+        listEl.appendChild(card);
+      }
+    });
+
+    lastAddedId = null;
+  }
+
+  function addComment({ title, body, tags = [] }) {
+      const categories= classifyTags(tags);
+      const sendData  = {
+          id      : uid(),
+          author  : user_data.name,
+          avatar  : user_data.avatar,
+          title, 
+          body, 
+          tags,
+          category: categories,
+          likes   : 0,
+          liked   : false,
+          created : Date.now()
+      };
+      comments.unshift(sendData);
+      lastAddedId = sendData.id;
+      renderComments();
+
+      const top = listEl.querySelector('.comment-card');
+      if (top) {
+        top.classList.add('card-glow');
+        setTimeout(()=> top.classList.remove('card-glow'), 1000);
+      }
+  }
+
+  function toggleLike(id) {
+    const c = comments.find(x => x.id === id);
+    if (!c) return;
+    c.liked = !c.liked;
+    c.likes = (c.likes || 0) + (c.liked ? 1 : -1);
+    if (c.likes < 0) c.likes = 0;
+
+    const card = listEl.querySelector(`.comment-card[data-id="${id}"]`);
+    if (card) {
+        const btn = card.querySelector('.btn-like');
+        if (btn) {
+          const countLike = `<span class="count-like">${c.likes}</span>`;
+          btn.innerHTML   = c.liked ? `${likeIcon} ${countLike}` : `${unlikeIcon} ${countLike}`;
+          btn.setAttribute('aria-pressed', c.liked ? 'true' : 'false');
+          btn.classList.add('pulse');
+          setTimeout(()=> btn.classList.remove('pulse'), 180);
+        }
+    } else {
+        renderComments();
+    }
+  }
+
+  filterTabs.forEach(f => {
+    f.addEventListener('click', function () {
+      filterTabs.forEach(ft => ft.classList.remove('active'));
+      this.classList.add('active');
+      const val = this.dataset.filter;
+      filterBy  = val === 'ALL' ? null : val;
+      renderComments();
+    });
+  });
+
+  sortPills.forEach(s => {
+    s.addEventListener('click', function () {
+      sortPills.forEach(sp => sp.classList.remove('active'));
+      this.classList.add('active');
+      sortBy = this.dataset.sort;
+      renderComments();
+    });
+  });
+
+  voteRow.addEventListener('click', function (e) { 
+      const tagBtn  = e.target.closest('.vote-tag');
+      if (!tagBtn) return;
+      const wrap    = tagBtn.parentElement;
+      const type    = tagBtn.dataset.type;
+      tagBtn.classList.add('active','dropdown');
+
+      let tagClass  = '';
+      if (tagBtn && tagBtn.classList.contains('zodiac')) {
+          tagClass  = 'zodiac';
+      }
+      if (tagBtn && tagBtn.classList.contains('ennea')) {
+          tagClass  = 'ennea';
+      }
+
+      let options   = [];
+      if (type === 'MBTI') options = mbti_array;
+      if (type === 'Enneagram') options = ennea_array;
+      if (type === 'Zodiac') options = zodiac_array;
+
+      const dd = createDropdown(wrap, options, tagClass);
+
+      dd.querySelectorAll('li').forEach(li => {
+          li.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const val       = this.dataset.value;
+            draftState[type]= val;
+            tagBtn.classList.add('active');
+
+            if (val.includes('w') && val.length === 3) {
+              const [left, right] = val.split('w');
+              tagBtn.innerHTML = `<span>${left}</span>
+                <img src="static/wing.png" alt="w" class="wing-icon">
+                <span>${right}</span>`;
+            } else {
+              tagBtn.textContent = val;
+            }
+
+            if (dd && dd._remove) dd._remove('select');
+            checkSubmitEnabled();
+          });
+      });
+  });
+ 
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.vote-tag-wrap') && !e.target.closest('.vote-dropdown')) {
+      closeAllDropdowns();
+    }
+  });
+
+  voteBtn.addEventListener('click', function () {
+    const isShown = draft.classList.toggle('show');
+    draft.setAttribute('aria-hidden', String(!isShown));
+    voteBtn.setAttribute('aria-expanded', String(isShown));
+    if (isShown) {
+        form.reset();
+        root.querySelectorAll('.vote-tag').forEach(b => {
+            b.classList.remove('active');
+            b.textContent = b.dataset.type;
+        });
+
+        const ta = draft.querySelector('textarea[name="body"]');
+        if (ta) ta.focus();
+    }
+  });
+
+  document.addEventListener('keyup', function(e) {
+    if (e.target.classList.contains('draft-body')) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (submitBtn.disabled) return;
+        form.dispatchEvent(new Event('submit', { cancelable: true }));
+      }
+    }
+  });
+
+  titleInput.addEventListener('input', checkSubmitEnabled);
+  bodyInput.addEventListener('input', checkSubmitEnabled);
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (submitBtn.disabled) return;
+    const title= titleInput.value.trim();
+    const body = bodyInput.value.replace(/\s+$/, ''); 
+    const tags = [];
+
+    if (draftState.MBTI) tags.push(draftState.MBTI);
+    if (draftState.Enneagram) tags.push(draftState.Enneagram);
+    if (draftState.Zodiac) tags.push(draftState.Zodiac);
+
+    addComment({ title, body, tags });
+
+    form.reset();
+    draftState.MBTI = draftState.Enneagram = draftState.Zodiac = null;
+    root.querySelectorAll('.vote-tag').forEach(b => {
+      b.classList.remove('active');
+      b.textContent = b.dataset.type;
+    });
+    checkSubmitEnabled();
+
+    draft.classList.remove('show');
+    draft.setAttribute('aria-hidden','true');
+    voteBtn.setAttribute('aria-expanded','false');
+  });
+
+  listEl.addEventListener('click', function (ev) {
+    const likeBtn = ev.target.closest('.btn-like');
+    if (likeBtn) {
+      const id = likeBtn.dataset.id;
+      toggleLike(id);
+      return;
+    }
+  });
+
+  comments.push(
+    {
+      id      : uid(),
+      author  : 'Rena Himatul',
+      avatar  : '/static/user-f.png',
+      title   : "Just not an INTJ",
+      body    : "I want Elon Musk to be an INTJ more than anyone, but he isn't...\nPeople think that Elon has Ni because of his long-term vision for humanity becoming a multi-planetary species, but the way he got to this conclusion is through Ti-Ne - by envisioning all the possibilities and choosing the Ti path that makes the most sense.\nElon's mannerisms, jokes, are very based on Ne. He has so much Ne that I even considered ENTP, but INTP is the most likely choice; watch the video if you're still not convinced.",
+      tags    : ['INTP'],
+      category: ['MBTI'],
+      likes   : 79,
+      liked   : false,
+      created : Date.now() - 1000 * 60 * 60
+    },
+    {
+      id      : uid(),
+      author  : 'Johan Quanerby',
+      avatar  : '/static/user-m.png',
+      title   : "He's definitely an INTP",
+      body    : `"He thinks about future, Ni. He is productive too, Te. That makes him INTJ ^_^"
+                lmao ok guys sure.
+                Let me make it easy for you guys:
+                The Arguments - Ti vs Te & Ne vs Ni.
+                1 - Ti vs Te:
+                • Ti: Elon wants to create new things that don't exists, no one imagines. He tends to assume that the information he has is true to come to the conclusion.
+                • Te: Te is mostly based on facts & evidence i.e the things which have been working for so long, on the ways everyone can trust/rely on.
+                Elon Musk is an obvious Ti user.
+                2 - Ne vs Ni:
+                • Ne: His ideas are divergent; He does not stick to one idea, he is constantly thinking about other possible outcomes.
+                • Ni: The individual who uses Ni has a clear vision about his idea & decides to follow it right away.
+                ~ Also, some other arguments I have:
+
+                INTJs are serious people, INTPs are more flexible i.e Elon Musk is an "easy come, easy go" type of person, His Fe is so obvious, he does not takes jokes or anything personally.
+
+                Elon Musk is just a productive INTP who gets things done, that's why people think of him as an INTJ.`,
+      tags    : ['INTP','8w9','Cancer'],
+      category: ['MBTI','Enneagram','Zodiac'],
+      likes   : 86,
+      liked   : true,
+      created : Date.now() - 1000 * 60 * 60
+    },
+  );
+  renderComments();
+
+  window.__BooComments = { addComment, comments, renderComments, toggleLike };
+});
+</script>
